@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { Supernova } from './supernova'
 
-function Icon({ name }: { name: 'plus' | 'list' | 'dots' }) {
+function Icon({ name }: { name: 'plus' | 'list' | 'users' | 'dots' }) {
   const common = {
     width: 20,
     height: 20,
@@ -25,6 +25,15 @@ function Icon({ name }: { name: 'plus' | 'list' | 'dots' }) {
         <path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01" />
       </svg>
     )
+  if (name === 'users')
+    return (
+      <svg {...common}>
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      </svg>
+    )
   return (
     <svg {...common}>
       <path d="M5 12h.01M12 12h.01M19 12h.01" strokeWidth={2.4} />
@@ -35,6 +44,7 @@ function Icon({ name }: { name: 'plus' | 'list' | 'dots' }) {
 const TABS = [
   { to: '/', label: '记账', end: true, icon: 'plus' },
   { to: '/ledger', label: '流水', end: false, icon: 'list' },
+  { to: '/people', label: '人员', end: false, icon: 'users' },
   { to: '/more', label: '更多', end: false, icon: 'dots' },
 ] as const
 const SB_KEY = 'nova.sidebar-width'

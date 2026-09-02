@@ -3,6 +3,7 @@ import { StoreProvider, useLedger } from './state/ledger'
 import { Layout } from './ui/Layout'
 import { LoginPage } from './ui/LoginPage'
 import { EntryPage } from './ui/EntryPage'
+import { PeoplePage } from './ui/PeoplePage'
 import { LedgerPage } from './ui/LedgerPage'
 import { MorePage } from './ui/MorePage'
 
@@ -43,6 +44,7 @@ export default function App() {
           <Route element={<Gate />}>
             <Route index element={<EntryPage />} />
             <Route path="ledger" element={<LedgerPage />} />
+            <Route path="people" element={<PeoplePage />} />
             <Route path="more" element={<MorePage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

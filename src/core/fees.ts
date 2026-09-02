@@ -9,6 +9,17 @@ export const DANCES = ['popping', 'hiphop', 'locking', 'waacking', 'house', 'bre
 
 export type Dance = (typeof DANCES)[number] | 'all'
 
+export const DANCE_LABEL: Record<Dance, string> = {
+  all: '全舞种',
+  popping: 'Popping',
+  hiphop: 'HipHop',
+  locking: 'Locking',
+  waacking: 'Waacking',
+  house: 'House',
+  breaking: 'Breaking',
+  jazz: 'Jazz',
+}
+
 /** 缴费入口:HyperNova 成员卡 / 单人卡 / 三人抱团卡(严格 3 人,舞社规定) */
 export type CourseFeeGroup = 'hypernova' | 'single' | 'trio'
 
