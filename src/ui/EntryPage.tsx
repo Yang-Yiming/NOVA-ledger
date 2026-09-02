@@ -31,9 +31,15 @@ const INPUT_CLS =
 
 const FEE_GROUP_LABEL: Record<CourseFeeGroup, string> = {
   hypernova: 'HyperNova',
-  single: '单人',
+  single: '单人卡',
   trio: '三人抱团',
 }
+
+const FEE_CARDS: { key: CourseFeeGroup; sub: string }[] = [
+  { key: 'hypernova', sub: `¥${feeYuan(COURSE_FEE_CENTS.hypernova)} · 全舞种` },
+  { key: 'single', sub: `¥${feeYuan(COURSE_FEE_CENTS['single:one'])} 起` },
+  { key: 'trio', sub: `¥${feeYuan(COURSE_FEE_CENTS['trio:one'])} 起` },
+]
 
 /** 表单草稿;dance 仅在三人抱团单舞种档由下拉选择,空串表示未选,提交前被 feeReady 拦截 */
 interface MemberDraft {
@@ -61,13 +67,16 @@ export function EntryPage() {
   const [members, setMembers] = useState<MemberDraft[]>([])
   const [csvMode, setCsvMode] = useState(false)
   const [csvText, setCsvText] = useState('')
+  /** 收入下的二级模式:课程缴费是主要收入来源,默认展示;其他收入走自由表单 */
+  const [incomeMode, setIncomeMode] = useState<'fee' | 'free'>('fee')
   const cents = yuanToCents(amount)
   const customCategory = custom.trim()
-  const finalCategory = customCategory || category
+  const isFeeMode = type === 'income' && incomeMode === 'fee'
+  const finalCategory = isFeeMode ? '缴费收入' : customCategory || category
 
   const withDance = feeGroup === 'trio' && trioScope === 'one'
   const csvParsed =
-    type === 'income' && feeGroup !== null && csvMode ? parseMemberLines(csvText, withDance) : null
+    isFeeMode && feeGroup !== null && csvMode ? parseMemberLines(csvText, withDance) : null
   const effMembers: MemberDraft[] = csvParsed ? csvParsed.members : members
 
   const feePanelOpen =
@@ -75,7 +84,7 @@ export function EntryPage() {
     (feeGroup === 'single' && singleDance !== null) ||
     (feeGroup === 'trio' && trioScope !== null)
   const feeReady =
-    type !== 'income' ||
+    !isFeeMode ||
     !feeGroup ||
     (feePanelOpen &&
       effMembers.length === (feeGroup === 'trio' ? 3 : 1) &&
@@ -94,10 +103,6 @@ export function EntryPage() {
       g === null ? [] : g === 'trio' ? [emptyDraft(''), emptyDraft(''), emptyDraft('')] : [emptyDraft('all')],
     )
     if (g === 'hypernova') setAmount(feeYuan(COURSE_FEE_CENTS.hypernova))
-    if (g !== null) {
-      setCategory('缴费收入')
-      setCustom('')
-    }
     setSaved(false)
   }
 
@@ -133,7 +138,7 @@ export function EntryPage() {
     e.preventDefault()
     if (!valid || cents === null || !finalCategory) return
     let metadata: Record<string, unknown> = {}
-    if (type === 'income' && feeGroup) {
+    if (isFeeMode && feeGroup) {
       const feeMembers: CourseFeeMember[] = effMembers.map(m => ({
         name: m.name.trim(),
         sid: m.sid.trim(),
@@ -185,6 +190,26 @@ export function EntryPage() {
         ))}
       </div>
 
+      {/* 收入二级模式:课程缴费(默认) | 其他收入 */}
+      {type === 'income' && (
+        <div className="flex justify-center">
+          <div className="inline-flex rounded-full bg-slate-100/90 p-0.5 text-xs font-medium">
+            {([['fee', '课程缴费'], ['free', '其他收入']] as const).map(([m, label]) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setIncomeMode(m)}
+                className={`rounded-full px-3.5 py-1.5 transition-all ${
+                  incomeMode === m ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* 金额 */}
       <div className="flex items-baseline justify-center gap-2 py-2">
         <span className="text-2xl font-medium text-slate-300">¥</span>
@@ -204,20 +229,25 @@ export function EntryPage() {
         <p className="text-center text-sm text-red-600">金额格式:最多两位小数,如 45.5</p>
       )}
 
-      {/* 课程缴费(仅收入):点选预填金额与分类,其余字段保持可改 */}
-      {type === 'income' && (
+      {/* 课程缴费(收入默认模式):卡片选档,预填金额,分类固定为缴费收入 */}
+      {isFeeMode && (
         <div className="space-y-3">
-          <div className="flex flex-wrap justify-center gap-2">
-            {(['hypernova', 'single', 'trio'] as CourseFeeGroup[]).map(g => (
+          <div className="grid grid-cols-3 gap-2">
+            {FEE_CARDS.map(c => (
               <button
-                key={g}
+                key={c.key}
                 type="button"
-                onClick={() => chooseFeeGroup(feeGroup === g ? null : g)}
-                className={`rounded-full px-4 py-2 text-sm transition-all active:scale-95 ${
-                  feeGroup === g ? TYPE_STYLE.income.chip : CHIP_OFF
+                onClick={() => chooseFeeGroup(feeGroup === c.key ? null : c.key)}
+                className={`rounded-2xl px-3 py-3 text-left transition-all active:scale-[0.98] ${
+                  feeGroup === c.key
+                    ? 'bg-emerald-50 ring-2 ring-emerald-500'
+                    : 'bg-white ring-1 ring-slate-200 hover:ring-slate-300'
                 }`}
               >
-                {FEE_GROUP_LABEL[g]}
+                <p className={`text-sm font-semibold ${feeGroup === c.key ? 'text-emerald-700' : 'text-slate-800'}`}>
+                  {FEE_GROUP_LABEL[c.key]}
+                </p>
+                <p className="mt-0.5 text-xs text-slate-400">{c.sub}</p>
               </button>
             ))}
           </div>
@@ -334,7 +364,9 @@ export function EntryPage() {
         </div>
       )}
 
-      {/* 分类 chips */}
+      {/* 分类(仅自由模式):课程缴费模式下分类固定为缴费收入 */}
+      {!isFeeMode && (
+      <div className="space-y-3">
       <div className="flex flex-wrap justify-center gap-2">
         {CATEGORIES[type].map((c) => (
           <button
@@ -360,6 +392,8 @@ export function EntryPage() {
         placeholder="自定义分类(可选,填写时优先使用)"
         className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
       />
+      </div>
+      )}
 
       {/* 备注 + 日期 */}
       <div className="grid grid-cols-[1fr_auto] gap-3">
