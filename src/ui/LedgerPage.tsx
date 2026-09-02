@@ -147,6 +147,29 @@ export function LedgerPage() {
               </p>
             </div>
             {selected.note && <p className="mt-3 text-sm text-slate-600">{selected.note}</p>}
+            {(() => {
+              const meta = selected.metadata as {
+                kind?: string
+                members?: { name: string; sid: string; dance: string }[]
+              }
+              if (meta?.kind !== 'course-fee' || !Array.isArray(meta.members)) return null
+              return (
+                <div className="mt-4 rounded-xl bg-slate-50 p-3 ring-1 ring-slate-100">
+                  <p className="text-xs font-medium text-slate-400">缴费人 · {meta.members.length}</p>
+                  <ul className="mt-2 space-y-1.5">
+                    {meta.members.map((m, i) => (
+                      <li key={i} className="flex items-baseline justify-between gap-3 text-sm">
+                        <span className="text-slate-800">
+                          {m.name}
+                          <span className="ml-2 text-xs tabular-nums text-slate-400">{m.sid}</span>
+                        </span>
+                        <span className="shrink-0 text-xs text-slate-500">{m.dance}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )
+            })()}
             <p className="mt-1 text-xs text-slate-400">
               记录于 {new Date(selected.createdAt).toLocaleString('zh-CN')}
             </p>
