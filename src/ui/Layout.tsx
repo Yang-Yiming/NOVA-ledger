@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
+import { Supernova } from './supernova'
 
 function Icon({ name }: { name: 'plus' | 'list' | 'dots' }) {
   const common = {
@@ -35,18 +37,44 @@ const TABS = [
   { to: '/ledger', label: '流水', end: false, icon: 'list' },
   { to: '/more', label: '更多', end: false, icon: 'dots' },
 ] as const
-
+const SB_KEY = 'nova.sidebar-width'
+const SB_MIN = 200
+const SB_MAX = 400
+const SB_DEFAULT = 240
 /** 移动端底部 tab / 桌面端左侧栏 */
 export function Layout() {
+  const [width, setWidth] = useState(() => {
+    const saved = Number(localStorage.getItem(SB_KEY))
+    return Number.isFinite(saved) && saved > 0
+      ? Math.min(SB_MAX, Math.max(SB_MIN, Math.round(saved)))
+      : SB_DEFAULT
+  })
+
+  function startDrag(e: React.PointerEvent<HTMLDivElement>) {
+    e.preventDefault()
+    const handle = e.currentTarget
+    handle.setPointerCapture(e.pointerId)
+    let latest = width
+    const move = (ev: PointerEvent) => {
+      latest = Math.min(SB_MAX, Math.max(SB_MIN, Math.round(ev.clientX)))
+      setWidth(latest)
+    }
+    const up = () => {
+      handle.releasePointerCapture(e.pointerId)
+      handle.removeEventListener('pointermove', move)
+      handle.removeEventListener('pointerup', up)
+      localStorage.setItem(SB_KEY, String(latest))
+    }
+    handle.addEventListener('pointermove', move)
+    handle.addEventListener('pointerup', up)
+  }
+
   return (
-    <div className="min-h-dvh bg-slate-50">
+    <div className="min-h-dvh bg-slate-50" style={{ '--sb-w': `${width}px` } as React.CSSProperties}>
       {/* 桌面侧栏 */}
-      <aside className="fixed inset-y-0 left-0 hidden w-52 flex-col gap-1 border-r border-slate-200/70 bg-white p-4 md:flex">
-        <div className="mb-8 flex items-center gap-2.5 px-2 pt-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 text-sm font-bold text-white shadow-md shadow-indigo-600/25">
-            N
-          </div>
-          <span className="font-semibold tracking-tight text-slate-900">NOVA Ledger</span>
+      <aside className="group fixed inset-y-0 left-0 hidden w-[var(--sb-w)] flex-col gap-1 border-r border-slate-200/70 bg-white p-4 md:flex">
+        <div className="mb-8 px-2 pt-2">
+          <Supernova width={140} />
         </div>
         {TABS.map((t) => (
           <NavLink
@@ -66,9 +94,15 @@ export function Layout() {
           </NavLink>
         ))}
         <div className="mt-auto px-2 pb-2 text-[11px] text-slate-300">v0.1</div>
+        <div
+          className="group/resize absolute inset-y-0 -right-1.5 z-10 hidden w-3 cursor-col-resize items-stretch justify-center md:flex"
+          title="拖动调整侧栏宽度"
+          onPointerDown={startDrag}
+        >
+          <span className="w-0.5 rounded-full bg-transparent transition-colors group-hover/resize:bg-indigo-400/50" />
+        </div>
       </aside>
-
-      <main className="mx-auto w-full max-w-3xl px-4 pb-28 pt-8 md:pl-60 md:pr-8 md:pb-10">
+      <main className="mx-auto w-full max-w-3xl px-4 pb-28 pt-8 md:pl-[var(--sb-w)] md:pr-8 md:pb-10">
         <Outlet />
       </main>
 
