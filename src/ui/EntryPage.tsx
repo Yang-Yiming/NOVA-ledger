@@ -4,9 +4,15 @@ import { yuanToCents, todayISO } from '../core/format'
 import type { TxType } from '../core/types'
 import { useLedger } from '../state/ledger'
 
-const TYPE_STYLE: Record<TxType, { active: string }> = {
-  expense: { active: 'bg-rose-600 text-white' },
-  income: { active: 'bg-emerald-600 text-white' },
+const TYPE_STYLE: Record<TxType, { active: string; chip: string }> = {
+  expense: {
+    active: 'bg-rose-600 text-white shadow-sm',
+    chip: 'bg-rose-600 text-white ring-rose-600',
+  },
+  income: {
+    active: 'bg-emerald-600 text-white shadow-sm',
+    chip: 'bg-emerald-600 text-white ring-emerald-600',
+  },
 }
 
 export function EntryPage() {
@@ -31,25 +37,28 @@ export function EntryPage() {
       note: note.trim() || null,
       occurredAt: date,
     })
+    setSaved(true)
     // 保留类型与分类,方便连续记账
     setAmount('')
     setNote('')
   }
+
   return (
-    <form onSubmit={onSubmit} className="space-y-6">
-      <h1 className="text-lg font-semibold text-slate-900">记一笔</h1>
+    <form onSubmit={onSubmit} className="page-enter space-y-6">
+      <h1 className="text-xl font-semibold tracking-tight text-slate-900">记一笔</h1>
 
       {/* 类型切换 */}
-      <div className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1">
+      <div className="grid grid-cols-2 gap-1 rounded-2xl bg-slate-100/90 p-1">
         {(['expense', 'income'] as const).map((t) => (
           <button
             key={t}
             type="button"
             onClick={() => {
               setType(t)
+              setSaved(false)
             }}
-            className={`rounded-lg py-2.5 text-sm font-medium transition-colors ${
-              type === t ? TYPE_STYLE[t].active : 'text-slate-500'
+            className={`rounded-xl py-2.5 text-sm font-medium transition-all ${
+              type === t ? TYPE_STYLE[t].active : 'text-slate-500 hover:text-slate-700'
             }`}
           >
             {TYPE_LABEL[t]}
@@ -58,8 +67,8 @@ export function EntryPage() {
       </div>
 
       {/* 金额 */}
-      <div className="flex items-baseline justify-center gap-2">
-        <span className="text-2xl font-medium text-slate-400">¥</span>
+      <div className="flex items-baseline justify-center gap-2 py-2">
+        <span className="text-2xl font-medium text-slate-300">¥</span>
         <input
           value={amount}
           onChange={(e) => {
@@ -69,7 +78,7 @@ export function EntryPage() {
           inputMode="decimal"
           placeholder="0.00"
           autoFocus
-          className="w-48 border-none bg-transparent text-center text-5xl font-semibold text-slate-900 outline-none placeholder:text-slate-200"
+          className="w-48 border-none bg-transparent text-center text-5xl font-semibold tracking-tight text-slate-900 outline-none placeholder:text-slate-200"
         />
       </div>
       {amount !== '' && cents === null && (
@@ -82,11 +91,14 @@ export function EntryPage() {
           <button
             key={c}
             type="button"
-            onClick={() => setCategory(c)}
-            className={`rounded-full px-4 py-2 text-sm transition-colors ${
+            onClick={() => {
+              setCategory(c)
+              setSaved(false)
+            }}
+            className={`rounded-full px-4 py-2 text-sm transition-all active:scale-95 ${
               category === c
-                ? 'bg-indigo-600 text-white'
-                : 'bg-white text-slate-600 shadow-sm ring-1 ring-slate-200'
+                ? TYPE_STYLE[type].chip
+                : 'bg-white text-slate-600 shadow-sm ring-1 ring-slate-200 hover:ring-slate-300'
             }`}
           >
             {c}
@@ -100,13 +112,13 @@ export function EntryPage() {
           value={note}
           onChange={(e) => setNote(e.target.value)}
           placeholder="备注(可选)"
-          className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-indigo-500"
+          className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
         />
         <input
           type="date"
           value={date}
           onChange={(e) => setDate(e.target.value)}
-          className="rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-600 outline-none focus:border-indigo-500"
+          className="rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-600 outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
         />
       </div>
 
@@ -115,7 +127,11 @@ export function EntryPage() {
       <button
         type="submit"
         disabled={!valid}
-        className="w-full rounded-2xl bg-indigo-600 py-4 text-base font-semibold text-white transition-opacity disabled:opacity-30"
+        className={`w-full rounded-2xl py-4 text-base font-semibold text-white shadow-lg transition-all active:scale-[0.98] disabled:opacity-30 ${
+          saved
+            ? 'bg-emerald-600 shadow-emerald-600/25'
+            : 'bg-gradient-to-b from-indigo-500 to-indigo-600 shadow-indigo-600/25 hover:from-indigo-500 hover:to-indigo-500'
+        }`}
       >
         {saved ? '已记录 ✓' : '保存'}
       </button>
