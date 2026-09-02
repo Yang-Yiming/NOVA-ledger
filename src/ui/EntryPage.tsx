@@ -20,20 +20,23 @@ export function EntryPage() {
   const [type, setType] = useState<TxType>('expense')
   const [amount, setAmount] = useState('')
   const [category, setCategory] = useState<string | null>(null)
+  const [custom, setCustom] = useState('')
   const [note, setNote] = useState('')
   const [date, setDate] = useState(todayISO())
   const [saved, setSaved] = useState(false)
 
   const cents = yuanToCents(amount)
-  const valid = cents !== null && cents > 0 && category !== null
+  const customCategory = custom.trim()
+  const finalCategory = customCategory || category
+  const valid = cents !== null && cents > 0 && finalCategory !== null
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
-    if (!valid || cents === null || !category) return
+    if (!valid || cents === null || !finalCategory) return
     await addTx({
       type,
       amountCents: cents,
-      category,
+      category: finalCategory,
       note: note.trim() || null,
       occurredAt: date,
     })
@@ -93,10 +96,11 @@ export function EntryPage() {
             type="button"
             onClick={() => {
               setCategory(c)
+              setCustom('')
               setSaved(false)
             }}
             className={`rounded-full px-4 py-2 text-sm transition-all active:scale-95 ${
-              category === c
+              !customCategory && category === c
                 ? TYPE_STYLE[type].chip
                 : 'bg-white text-slate-600 shadow-sm ring-1 ring-slate-200 hover:ring-slate-300'
             }`}
@@ -104,7 +108,14 @@ export function EntryPage() {
             {c}
           </button>
         ))}
+
       </div>
+      <input
+        value={custom}
+        onChange={(e) => setCustom(e.target.value)}
+        placeholder="自定义分类(可选,填写时优先使用)"
+        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
+      />
 
       {/* 备注 + 日期 */}
       <div className="grid grid-cols-[1fr_auto] gap-3">
