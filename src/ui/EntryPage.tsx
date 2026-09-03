@@ -1,7 +1,9 @@
 import { useState, type FormEvent } from 'react'
 import { CATEGORIES, TYPE_LABEL } from '../core/categories'
 import {
+  COURSE_EXPENSE_CENTS,
   COURSE_FEE_CENTS,
+  DANCE_LABEL,
   DANCES,
   feeYuan,
   isDance,
@@ -69,10 +71,19 @@ export function EntryPage() {
   const [csvText, setCsvText] = useState('')
   /** 收入下的二级模式:课程缴费是主要收入来源,默认展示;其他收入走自由表单 */
   const [incomeMode, setIncomeMode] = useState<'fee' | 'free'>('fee')
+  /** 支出下的二级模式:课程费用是主要支出来源,默认展示;其他支出走自由表单 */
+  const [expenseMode, setExpenseMode] = useState<'course' | 'free'>('course')
+  /** 课程费用模式下已选舞种,选中即预填金额 */
+  const [expenseDance, setExpenseDance] = useState<(typeof DANCES)[number] | null>(null)
   const cents = yuanToCents(amount)
   const customCategory = custom.trim()
   const isFeeMode = type === 'income' && incomeMode === 'fee'
-  const finalCategory = isFeeMode ? '缴费收入' : customCategory || category
+  const isCourseExpense = type === 'expense' && expenseMode === 'course'
+  const finalCategory = isFeeMode
+    ? '缴费收入'
+    : isCourseExpense
+      ? '课程费用'
+      : customCategory || category
 
   const withDance = feeGroup === 'trio' && trioScope === 'one'
   const csvParsed =
@@ -91,7 +102,8 @@ export function EntryPage() {
       effMembers.every(m => m.name.trim() !== '' && m.sid.trim() !== '' && (!withDance || isDance(m.dance))) &&
       (!csvParsed || csvParsed.errors.length === 0))
 
-  const valid = cents !== null && cents > 0 && finalCategory !== null && feeReady
+  const valid =
+    cents !== null && cents > 0 && finalCategory !== null && feeReady && (!isCourseExpense || expenseDance !== null)
 
   function chooseFeeGroup(g: CourseFeeGroup | null) {
     setFeeGroup(g)
@@ -116,6 +128,12 @@ export function EntryPage() {
     setTrioScope(s)
     setAmount(feeYuan(s === 'all' ? COURSE_FEE_CENTS['trio:all'] : COURSE_FEE_CENTS['trio:one']))
     setMembers(ms => ms.map(m => ({ ...m, dance: s === 'all' ? 'all' : '' })))
+    setSaved(false)
+  }
+
+  function chooseExpenseDance(d: (typeof DANCES)[number]) {
+    setExpenseDance(d)
+    setAmount(feeYuan(COURSE_EXPENSE_CENTS[d]))
     setSaved(false)
   }
 
@@ -150,6 +168,8 @@ export function EntryPage() {
               : (m.dance as CourseFeeMember['dance']),
       }))
       metadata = { kind: 'course-fee', group: feeGroup, members: feeMembers }
+    } else if (isCourseExpense && expenseDance) {
+      metadata = { kind: 'course-expense', dance: expenseDance }
     }
     await addTx({
       type,
@@ -190,23 +210,57 @@ export function EntryPage() {
         ))}
       </div>
 
-      {/* 收入二级模式:课程缴费(默认) | 其他收入 */}
-      {type === 'income' && (
-        <div className="flex justify-center">
-          <div className="inline-flex rounded-full bg-slate-100/90 p-0.5 text-xs font-medium">
-            {([['fee', '课程缴费'], ['free', '其他收入']] as const).map(([m, label]) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => setIncomeMode(m)}
-                className={`rounded-full px-3.5 py-1.5 transition-all ${
-                  incomeMode === m ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
+      {/* 二级模式:收入 课程缴费(默认) | 其他收入;支出 课程费用(默认) | 其他支出 */}
+      {(() => {
+        const chips =
+          type === 'income'
+            ? ([['fee', '课程缴费'], ['free', '其他收入']] as const)
+            : ([['course', '课程费用'], ['free', '其他支出']] as const)
+        const mode = type === 'income' ? incomeMode : expenseMode
+        return (
+          <div className="flex justify-center">
+            <div className="inline-flex rounded-full bg-slate-100/90 p-0.5 text-xs font-medium">
+              {chips.map(([m, label]) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => {
+                    if (type === 'income') setIncomeMode(m as 'fee' | 'free')
+                    else setExpenseMode(m as 'course' | 'free')
+                    setSaved(false)
+                  }}
+                  className={`rounded-full px-3.5 py-1.5 transition-all ${
+                    mode === m ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
+        )
+      })()}
+
+      {/* 课程费用(支出默认模式):卡片选舞种,选中即预填课时费,分类固定为课程费用 */}
+      {isCourseExpense && (
+        <div className="flex flex-wrap justify-center gap-2">
+          {DANCES.map((d) => (
+            <button
+              key={d}
+              type="button"
+              onClick={() => chooseExpenseDance(d)}
+              className={`w-24 rounded-2xl px-2 py-3 text-center transition-all active:scale-[0.98] ${
+                expenseDance === d
+                  ? 'bg-rose-50 ring-2 ring-rose-500'
+                  : 'bg-white ring-1 ring-slate-200 hover:ring-slate-300'
+              }`}
+            >
+              <p className={`text-sm font-semibold ${expenseDance === d ? 'text-rose-700' : 'text-slate-800'}`}>
+                {DANCE_LABEL[d]}
+              </p>
+              <p className="mt-0.5 text-xs tabular-nums text-slate-400">¥{feeYuan(COURSE_EXPENSE_CENTS[d])}</p>
+            </button>
+          ))}
         </div>
       )}
 
@@ -364,8 +418,8 @@ export function EntryPage() {
         </div>
       )}
 
-      {/* 分类(仅自由模式):课程缴费模式下分类固定为缴费收入 */}
-      {!isFeeMode && (
+      {/* 分类(仅自由模式):课程缴费/课程费用模式下分类固定 */}
+      {!isFeeMode && !isCourseExpense && (
       <div className="space-y-3">
       <div className="flex flex-wrap justify-center gap-2">
         {CATEGORIES[type].map((c) => (

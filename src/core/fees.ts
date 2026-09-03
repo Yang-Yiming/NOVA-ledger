@@ -31,6 +31,17 @@ export const COURSE_FEE_CENTS = {
   'trio:all': 139900,
   'trio:one': 99900,
 } as const
+
+/** 支出侧的课程费用(请老师课时费),按舞种一口价,单位:分 */
+export const COURSE_EXPENSE_CENTS: Record<Exclude<Dance, 'all'>, number> = {
+  popping: 40000,
+  hiphop: 40000,
+  locking: 45000,
+  waacking: 50000,
+  house: 40000,
+  breaking: 40000,
+  jazz: 40000,
+}
 export interface CourseFeeMember {
   name: string
   sid: string

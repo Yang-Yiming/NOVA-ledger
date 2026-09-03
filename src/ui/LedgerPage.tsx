@@ -150,7 +150,11 @@ export function LedgerPage() {
             {(() => {
               const meta = selected.metadata as {
                 kind?: string
+                dance?: string
                 members?: { name: string; sid: string; dance: string }[]
+              }
+              if (meta?.kind === 'course-expense' && typeof meta.dance === 'string') {
+                return <p className="mt-3 text-sm text-slate-600">舞种:{meta.dance}</p>
               }
               if (meta?.kind !== 'course-fee' || !Array.isArray(meta.members)) return null
               return (
