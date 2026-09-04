@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { CATEGORIES, TYPE_LABEL } from '../core/categories'
 import {
   COURSE_EXPENSE_CENTS,
@@ -55,6 +56,7 @@ const emptyDraft = (dance: string): MemberDraft => ({ name: '', sid: '', dance }
 
 export function EntryPage() {
   const { addTx, error, txs } = useLedger()
+  const navigate = useNavigate()
   const [type, setType] = useState<TxType>('expense')
   const [amount, setAmount] = useState('')
   const [category, setCategory] = useState<string | null>(null)
@@ -79,6 +81,8 @@ export function EntryPage() {
   const cents = yuanToCents(amount)
   /** 总余额:打开页面即展示的核心信息,记账成功后随 txs 刷新 */
   const balanceCents = summarize(txs ?? []).balanceCents
+  /** 金额三层排版:¥ 小灰、整数大、小数小灰 */
+  const [balanceInt, balanceFrac] = centsToYuan(balanceCents).split('.')
   const customCategory = custom.trim()
   const isFeeMode = type === 'income' && incomeMode === 'fee'
   const isCourseExpense = type === 'expense' && expenseMode === 'course'
@@ -192,19 +196,35 @@ export function EntryPage() {
 
   return (
     <form onSubmit={onSubmit} className="page-enter space-y-6">
-      <h1 className="text-xl font-semibold tracking-tight text-slate-900">记一笔</h1>
-
-      {/* 余额条 */}
-      <div className="flex items-center justify-between rounded-2xl bg-white px-5 py-4 shadow-sm ring-1 ring-slate-200">
-        <p className="text-sm text-slate-500">NOVA 余额</p>
+      <button
+        type="button"
+        onClick={() => navigate('/ledger')}
+        title="查看流水明细"
+        className="relative flex w-full cursor-pointer items-center justify-between overflow-hidden rounded-3xl bg-gradient-to-br from-slate-950 via-slate-950 to-indigo-900 px-5 py-4 text-left text-white ring-1 ring-indigo-400/15 transition-[filter,box-shadow] hover:brightness-110 hover:ring-indigo-400/30"
+      >
+        <p className="relative text-sm text-indigo-200/70">NOVA 余额</p>
         <p
-          className={`text-2xl font-semibold tracking-tight tabular-nums ${
-            balanceCents < 0 ? 'text-rose-500' : 'text-slate-900'
+          className={`relative text-2xl font-semibold tracking-tight tabular-nums ${
+            balanceCents < 0 ? 'text-rose-400' : 'text-white'
           }`}
         >
-          ¥{centsToYuan(balanceCents)}
+          <span
+            className={`text-base font-normal ${
+              balanceCents < 0 ? 'text-rose-400/70' : 'text-indigo-200/70'
+            }`}
+          >
+            ¥
+          </span>
+          {balanceInt}
+          <span
+            className={`text-base font-normal ${
+              balanceCents < 0 ? 'text-rose-400/70' : 'text-indigo-200/70'
+            }`}
+          >
+            .{balanceFrac}
+          </span>
         </p>
-      </div>
+      </button>
 
       {/* 类型切换 */}
       <div className="grid grid-cols-2 gap-1 rounded-2xl bg-slate-100/90 p-1">
