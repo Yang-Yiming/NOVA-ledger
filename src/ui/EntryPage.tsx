@@ -12,7 +12,8 @@ import {
   type CourseFeeGroup,
   type CourseFeeMember,
 } from '../core/fees'
-import { yuanToCents, todayISO } from '../core/format'
+import { centsToYuan, yuanToCents, todayISO } from '../core/format'
+import { summarize } from '../core/stats'
 import type { TxType } from '../core/types'
 import { useLedger } from '../state/ledger'
 
@@ -53,7 +54,7 @@ interface MemberDraft {
 const emptyDraft = (dance: string): MemberDraft => ({ name: '', sid: '', dance })
 
 export function EntryPage() {
-  const { addTx, error } = useLedger()
+  const { addTx, error, txs } = useLedger()
   const [type, setType] = useState<TxType>('expense')
   const [amount, setAmount] = useState('')
   const [category, setCategory] = useState<string | null>(null)
@@ -76,6 +77,8 @@ export function EntryPage() {
   /** 课程费用模式下已选舞种,选中即预填金额 */
   const [expenseDance, setExpenseDance] = useState<(typeof DANCES)[number] | null>(null)
   const cents = yuanToCents(amount)
+  /** 总余额:打开页面即展示的核心信息,记账成功后随 txs 刷新 */
+  const balanceCents = summarize(txs ?? []).balanceCents
   const customCategory = custom.trim()
   const isFeeMode = type === 'income' && incomeMode === 'fee'
   const isCourseExpense = type === 'expense' && expenseMode === 'course'
@@ -190,6 +193,18 @@ export function EntryPage() {
   return (
     <form onSubmit={onSubmit} className="page-enter space-y-6">
       <h1 className="text-xl font-semibold tracking-tight text-slate-900">记一笔</h1>
+
+      {/* 余额条 */}
+      <div className="flex items-center justify-between rounded-2xl bg-white px-5 py-4 shadow-sm ring-1 ring-slate-200">
+        <p className="text-sm text-slate-500">NOVA 余额</p>
+        <p
+          className={`text-2xl font-semibold tracking-tight tabular-nums ${
+            balanceCents < 0 ? 'text-rose-500' : 'text-slate-900'
+          }`}
+        >
+          ¥{centsToYuan(balanceCents)}
+        </p>
+      </div>
 
       {/* 类型切换 */}
       <div className="grid grid-cols-2 gap-1 rounded-2xl bg-slate-100/90 p-1">
