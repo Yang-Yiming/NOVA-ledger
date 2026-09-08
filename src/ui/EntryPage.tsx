@@ -95,7 +95,11 @@ export function EntryPage() {
   const withDance = feeGroup === 'trio' && trioScope === 'one'
   const csvParsed =
     isFeeMode && feeGroup !== null && csvMode ? parseMemberLines(csvText, withDance) : null
-  const effMembers: MemberDraft[] = csvParsed ? csvParsed.members : members
+  /** 粘贴文本可填入表单:解析零错误且人数与档位匹配 */
+  const csvApplyable =
+    csvParsed !== null &&
+    csvParsed.errors.length === 0 &&
+    csvParsed.members.length === (feeGroup === 'trio' ? 3 : 1)
 
   const feePanelOpen =
     feeGroup === 'hypernova' ||
@@ -105,9 +109,8 @@ export function EntryPage() {
     !isFeeMode ||
     !feeGroup ||
     (feePanelOpen &&
-      effMembers.length === (feeGroup === 'trio' ? 3 : 1) &&
-      effMembers.every(m => m.name.trim() !== '' && m.sid.trim() !== '' && (!withDance || isDance(m.dance))) &&
-      (!csvParsed || csvParsed.errors.length === 0))
+      members.length === (feeGroup === 'trio' ? 3 : 1) &&
+      members.every(m => m.name.trim() !== '' && m.sid.trim() !== '' && (!withDance || isDance(m.dance))))
 
   const valid =
     cents !== null && cents > 0 && finalCategory !== null && feeReady && (!isCourseExpense || expenseDance !== null)
@@ -135,6 +138,7 @@ export function EntryPage() {
     setTrioScope(s)
     setAmount(feeYuan(s === 'all' ? COURSE_FEE_CENTS['trio:all'] : COURSE_FEE_CENTS['trio:one']))
     setMembers(ms => ms.map(m => ({ ...m, dance: s === 'all' ? 'all' : '' })))
+    if (csvMode) setCsvText('')
     setSaved(false)
   }
 
@@ -150,13 +154,22 @@ export function EntryPage() {
 
   function toggleCsv() {
     if (!csvMode) {
-      setCsvText(memberLines(effMembers, withDance))
+      setCsvText(memberLines(members, withDance))
       setCsvMode(true)
     } else {
-      const { members: parsed } = parseMemberLines(csvText, withDance)
-      if (parsed.length > 0) setMembers(parsed)
+      // 手动退出粘贴 = 取消:未解析的文本不写入,填入只走 applyCsv
       setCsvMode(false)
+      setCsvText('')
     }
+  }
+
+  /** 粘贴 → 表单:解析结果写入表单字段,核对与修改都在表单里做 */
+  function applyCsv() {
+    if (!csvApplyable || !csvParsed) return
+    setMembers(csvParsed.members)
+    setCsvMode(false)
+    setCsvText('')
+    setSaved(false)
   }
 
   async function onSubmit(e: FormEvent) {
@@ -164,7 +177,7 @@ export function EntryPage() {
     if (!valid || cents === null || !finalCategory) return
     let metadata: Record<string, unknown> = {}
     if (isFeeMode && feeGroup) {
-      const feeMembers: CourseFeeMember[] = effMembers.map(m => ({
+      const feeMembers: CourseFeeMember[] = members.map(m => ({
         name: m.name.trim(),
         sid: m.sid.trim(),
         dance:
@@ -390,7 +403,7 @@ export function EntryPage() {
                   onClick={toggleCsv}
                   className="text-xs font-medium text-indigo-600 transition-colors hover:text-indigo-500"
                 >
-                  {csvMode ? '切换为表单' : '切换为粘贴'}
+                  {csvMode ? '取消粘贴' : '切换为粘贴'}
                 </button>
               </div>
 
@@ -411,6 +424,20 @@ export function EntryPage() {
                       第 {csvParsed.errors.map(e => e.line).join('、')} 行格式不对
                     </p>
                   )}
+                  {csvParsed && csvParsed.errors.length === 0 && !csvApplyable && (
+                    <p className="text-xs text-amber-600">
+                      已识别 {csvParsed.members.length} 人,
+                      {feeGroup === 'trio' ? '三人抱团需要 3 人' : '该档位需要 1 人'}
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={applyCsv}
+                    disabled={!csvApplyable}
+                    className="w-full rounded-xl bg-indigo-600 py-2.5 text-sm font-semibold text-white shadow-sm transition-all active:scale-[0.98] disabled:opacity-30"
+                  >
+                    解析并填入表单
+                  </button>
                 </div>
               ) : (
                 <div className="space-y-2">
