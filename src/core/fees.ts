@@ -64,14 +64,81 @@ export function feeYuan(cents: number): string {
   return cents % 100 === 0 ? String(cents / 100) : centsToYuan(cents)
 }
 
-/** 成员 → 粘贴文本:一行一人 `学号,姓名[,舞种]` */
+/** 粘贴格式模板:占位符 {sid} {name} {dance},其余字符为字面量;默认即规范格式 */
+export function defaultMemberTemplate(withDance: boolean): string {
+  return withDance ? '{sid},{name},{dance}' : '{sid},{name}'
+}
+
+const TEMPLATE_FIELDS = ['sid', 'name', 'dance'] as const
+
+/**
+ * 校验格式模板:{sid}/{name} 恰好一次;{dance} 仅 withDance 允许且恰好一次;未知 {xxx} 报错。
+ * 返回给用户看的错误文案,null 表示可用。
+ */
+export function validateMemberTemplate(template: string, withDance: boolean): string | null {
+  const counts: Partial<Record<(typeof TEMPLATE_FIELDS)[number], number>> = {}
+  for (const m of template.matchAll(/\{(\w+)\}/g)) {
+    const field = m[1] as (typeof TEMPLATE_FIELDS)[number]
+    if (!TEMPLATE_FIELDS.includes(field)) return `未知占位符 {${field}}`
+    counts[field] = (counts[field] ?? 0) + 1
+  }
+  if ((counts.sid ?? 0) !== 1) return '格式需要恰好一个 {sid}'
+  if ((counts.name ?? 0) !== 1) return '格式需要恰好一个 {name}'
+  if (withDance !== ((counts.dance ?? 0) === 1))
+    return withDance ? '该档位格式需要恰好一个 {dance}' : '该档位不需要 {dance}'
+  return null
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/**
+ * 模板 → 行正则:{sid}/{name} 匹配非空白段,{dance} 用舞种枚举锚定;
+ * 字面量逗号(含全角)兼容尾随空白,空白段匹配 \s+;不锚定行首尾,容忍「1. 」编号等杂讯。
+ */
+function templateToRegex(template: string, withDance: boolean): RegExp | null {
+  if (validateMemberTemplate(template, withDance) !== null) return null
+  const tokens = template.split(/(\{\w+\})/).filter(Boolean)
+  /** 模板字面量里出现过的分隔符字符;字段值不得包含,防止 (\S+) 跨过分隔符吃进下一段 */
+  const seps = new Set<string>()
+  for (const tok of tokens) {
+    if (/^\{\w+\}$/.test(tok)) continue
+    for (const seg of tok.split(/(\s+)/)) {
+      if (!seg || /^\s+$/.test(seg)) continue
+      if (seg === ',' || seg === '，') seps.add(',').add('，')
+      else for (const ch of seg) seps.add(ch)
+    }
+  }
+  const field = seps.size
+    ? `([^${[...seps].map(c => c.replace(/[\\^\]-]/g, '\\$&')).join('')}\\s]+)`
+    : '(\\S+)'
+  const parts = tokens.map(tok => {
+    if (/^\{\w+\}$/.test(tok)) return tok === '{dance}' ? `\\b(all|${DANCES.join('|')})\\b` : field
+    return tok
+      .split(/(\s+)/)
+      .map(seg => {
+        if (!seg) return ''
+        if (/^\s+$/.test(seg)) return '\\s+'
+        if (seg === ',' || seg === '，') return '[,，\\t ]+'
+        return escapeRegExp(seg)
+      })
+      .join('')
+  })
+  return new RegExp(parts.join(''), 'i')
+}
+
+/** 成员 → 粘贴文本:按模板一行一人;模板须先通过 validateMemberTemplate */
 export function memberLines(
   members: ReadonlyArray<{ name: string; sid: string; dance: string }>,
   withDance: boolean,
+  template = defaultMemberTemplate(withDance),
 ): string {
   return members
     .filter(m => m.name.trim() !== '' || m.sid.trim() !== '')
-    .map(m => (withDance ? `${m.sid},${m.name},${m.dance}` : `${m.sid},${m.name}`))
+    .map(m =>
+      template.split('{sid}').join(m.sid).split('{name}').join(m.name).split('{dance}').join(m.dance),
+    )
     .join('\n')
 }
 
@@ -80,20 +147,38 @@ export interface ParsedMemberLines {
   errors: { line: number; text: string }[]
 }
 
-/** 解析粘贴名单:一行一人 `学号,姓名[,舞种]`;兼容全角逗号与空格/Tab 分隔,空行跳过,段数不对整行报错 */
-export function parseMemberLines(text: string, withDance: boolean): ParsedMemberLines {
+/** 解析粘贴名单:按模板逐行 search,空行跳过,匹配失败整行报错;模板无效时所有行报错 */
+export function parseMemberLines(
+  text: string,
+  withDance: boolean,
+  template = defaultMemberTemplate(withDance),
+): ParsedMemberLines {
   const members: ParsedMemberLines['members'] = []
   const errors: ParsedMemberLines['errors'] = []
+  const re = templateToRegex(template, withDance)
+  const fields: string[] = []
+  if (re) {
+    for (const tok of template.split(/(\{\w+\})/)) {
+      if (/^\{\w+\}$/.test(tok)) fields.push(tok.slice(1, -1))
+    }
+  }
+  const trimPunct = (v: string) => v.replace(/^[,，、;；:．.]+|[,，、;；:．.]+$/g, '')
   text.split('\n').forEach((raw, i) => {
-    const parts = raw.trim().split(/[,，\t ]+/).filter(Boolean)
-    if (parts.length === 0) return
-    const [sid = '', name = ''] = parts
-    const dance = withDance ? (parts[2] ?? '').toLowerCase() : 'all'
-    if (!sid || !name || parts.length > (withDance ? 3 : 2) || (withDance && !isDance(dance))) {
-      errors.push({ line: i + 1, text: raw.trim() })
+    const line = raw.trim()
+    if (!line) return
+    const m = re?.exec(line)
+    if (!m) {
+      errors.push({ line: i + 1, text: line })
       return
     }
-    members.push({ name, sid, dance })
+    const value = (field: string) => trimPunct(m[fields.indexOf(field) + 1] ?? '')
+    const sid = value('sid')
+    const name = value('name')
+    if (!sid || !name) {
+      errors.push({ line: i + 1, text: line })
+      return
+    }
+    members.push({ name, sid, dance: withDance ? value('dance').toLowerCase() : 'all' })
   })
   return { members, errors }
 }

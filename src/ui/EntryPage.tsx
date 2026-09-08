@@ -6,10 +6,12 @@ import {
   COURSE_FEE_CENTS,
   DANCE_LABEL,
   DANCES,
+  defaultMemberTemplate,
   feeYuan,
   isDance,
   memberLines,
   parseMemberLines,
+  validateMemberTemplate,
   type CourseFeeGroup,
   type CourseFeeMember,
 } from '../core/fees'
@@ -72,6 +74,8 @@ export function EntryPage() {
   const [members, setMembers] = useState<MemberDraft[]>([])
   const [csvMode, setCsvMode] = useState(false)
   const [csvText, setCsvText] = useState('')
+  /** 粘贴格式模板;空串 = 默认格式 {sid},{name}[,{dance}] */
+  const [csvTemplate, setCsvTemplate] = useState('')
   /** 收入下的二级模式:课程缴费是主要收入来源,默认展示;其他收入走自由表单 */
   const [incomeMode, setIncomeMode] = useState<'fee' | 'free'>('fee')
   /** 支出下的二级模式:课程费用是主要支出来源,默认展示;其他支出走自由表单 */
@@ -93,10 +97,14 @@ export function EntryPage() {
       : customCategory || category
 
   const withDance = feeGroup === 'trio' && trioScope === 'one'
+  const memberTemplate =
+    csvTemplate.trim() === '' ? defaultMemberTemplate(withDance) : csvTemplate
+  const templateError = isFeeMode && csvMode ? validateMemberTemplate(memberTemplate, withDance) : null
   const csvParsed =
-    isFeeMode && feeGroup !== null && csvMode ? parseMemberLines(csvText, withDance) : null
-  /** 粘贴文本可填入表单:解析零错误且人数与档位匹配 */
+    isFeeMode && feeGroup !== null && csvMode ? parseMemberLines(csvText, withDance, memberTemplate) : null
+  /** 粘贴文本可填入表单:模板有效、解析零错误且人数与档位匹配 */
   const csvApplyable =
+    templateError === null &&
     csvParsed !== null &&
     csvParsed.errors.length === 0 &&
     csvParsed.members.length === (feeGroup === 'trio' ? 3 : 1)
@@ -114,13 +122,13 @@ export function EntryPage() {
 
   const valid =
     cents !== null && cents > 0 && finalCategory !== null && feeReady && (!isCourseExpense || expenseDance !== null)
-
   function chooseFeeGroup(g: CourseFeeGroup | null) {
     setFeeGroup(g)
     setSingleDance(null)
     setTrioScope(null)
     setCsvMode(false)
     setCsvText('')
+    setCsvTemplate('')
     setMembers(
       g === null ? [] : g === 'trio' ? [emptyDraft(''), emptyDraft(''), emptyDraft('')] : [emptyDraft('all')],
     )
@@ -138,7 +146,10 @@ export function EntryPage() {
     setTrioScope(s)
     setAmount(feeYuan(s === 'all' ? COURSE_FEE_CENTS['trio:all'] : COURSE_FEE_CENTS['trio:one']))
     setMembers(ms => ms.map(m => ({ ...m, dance: s === 'all' ? 'all' : '' })))
-    if (csvMode) setCsvText('')
+    if (csvMode) {
+      setCsvText('')
+      setCsvTemplate('')
+    }
     setSaved(false)
   }
 
@@ -154,7 +165,7 @@ export function EntryPage() {
 
   function toggleCsv() {
     if (!csvMode) {
-      setCsvText(memberLines(members, withDance))
+      setCsvText(memberLines(members, withDance, memberTemplate))
       setCsvMode(true)
     } else {
       // 手动退出粘贴 = 取消:未解析的文本不写入,填入只走 applyCsv
@@ -417,8 +428,27 @@ export function EntryPage() {
                     className={`${INPUT_CLS} font-mono`}
                   />
                   <p className="text-xs text-slate-400">
-                    一行一人:{withDance ? '学号,姓名,舞种' : '学号,姓名'}
+                    一行一人,格式决定怎么解析;留空即 {withDance ? '学号,姓名,舞种' : '学号,姓名'}
                   </p>
+                  <div className="flex items-center gap-1">
+                    <input
+                      value={csvTemplate}
+                      onChange={e => setCsvTemplate(e.target.value)}
+                      placeholder={defaultMemberTemplate(withDance)}
+                      className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-2 py-1.5 font-mono text-xs outline-none transition focus:border-indigo-500"
+                    />
+                    {['{sid}', '{name}', ...(withDance ? ['{dance}'] : [])].map(p => (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => setCsvTemplate(t => t + p)}
+                        className="shrink-0 rounded-lg bg-slate-100 px-1.5 py-1 font-mono text-xs text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-700"
+                      >
+                        {p}
+                      </button>
+                    ))}
+                  </div>
+                  {templateError && <p className="text-xs text-red-600">{templateError}</p>}
                   {csvParsed && csvParsed.errors.length > 0 && (
                     <p className="text-xs text-red-600">
                       第 {csvParsed.errors.map(e => e.line).join('、')} 行格式不对
