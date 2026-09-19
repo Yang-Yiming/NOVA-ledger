@@ -6,6 +6,7 @@ import {
   COURSE_FEE_CENTS,
   DANCE_LABEL,
   DANCES,
+  FEE_GROUP_LABEL,
   defaultMemberTemplate,
   feeYuan,
   isDance,
@@ -34,12 +35,6 @@ const TYPE_STYLE: Record<TxType, { active: string; chip: string }> = {
 const CHIP_OFF = 'bg-white text-slate-600 shadow-sm ring-1 ring-slate-200 hover:ring-slate-300'
 const INPUT_CLS =
   'w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10'
-
-const FEE_GROUP_LABEL: Record<CourseFeeGroup, string> = {
-  hypernova: 'HyperNova',
-  single: '单人卡',
-  trio: '三人抱团',
-}
 
 const FEE_CARDS: { key: CourseFeeGroup; sub: string }[] = [
   { key: 'hypernova', sub: `¥${feeYuan(COURSE_FEE_CENTS.hypernova)} · 全舞种` },

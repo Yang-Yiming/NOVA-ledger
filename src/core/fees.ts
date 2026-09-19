@@ -23,6 +23,16 @@ export const DANCE_LABEL: Record<Dance, string> = {
 /** 缴费入口:HyperNova 成员卡 / 单人卡 / 三人抱团卡(严格 3 人,舞社规定) */
 export type CourseFeeGroup = 'hypernova' | 'single' | 'trio'
 
+export const FEE_GROUP_LABEL: Record<CourseFeeGroup, string> = {
+  hypernova: 'HyperNova',
+  single: '单人卡',
+  trio: '三人抱团',
+}
+
+export function isCourseFeeGroup(v: unknown): v is CourseFeeGroup {
+  return v === 'hypernova' || v === 'single' || v === 'trio'
+}
+
 /** 价格档,单位:分。all = 全舞种;hypernova 固定全舞种、不参与抱团 */
 export const COURSE_FEE_CENTS = {
   hypernova: 45600,

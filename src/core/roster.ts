@@ -1,5 +1,5 @@
-import type { Dance } from './fees'
-import { isDance } from './fees'
+import type { CourseFeeGroup, Dance } from './fees'
+import { isCourseFeeGroup, isDance } from './fees'
 import type { Tx } from './types'
 
 /**
@@ -65,7 +65,7 @@ function isDanceDance(v: unknown): v is Dance {
   return typeof v === 'string' && isDance(v)
 }
 
-interface FeeMember {
+export interface FeeMember {
   sid: string
   name: string
   dance: Dance
@@ -84,15 +84,29 @@ function feeMembers(tx: Tx): FeeMember[] {
   return out
 }
 
+/** [start, end] 内、members 能读出来的课程缴费流水(时间升序,即录入先后) */
+function feeTxsIn(txs: Tx[], start: string, end: string): Tx[] {
+  return txs
+    .filter(
+      t =>
+        t.type === 'income' &&
+        t.occurredAt >= start &&
+        t.occurredAt <= end &&
+        feeMembers(t).length > 0,
+    )
+    .sort(
+      (a, b) =>
+        a.occurredAt.localeCompare(b.occurredAt) || a.createdAt.localeCompare(b.createdAt),
+    )
+}
+
 /**
  * 汇总 [start, end] 内的 course-fee 流水 → 名单。
  * 归并键 = 学号;姓名取 occurredAt 最晚(同日再比 createdAt)那笔的;
  * 课程取并集,含 'all' 时只留 'all'。按学号升序输出。
  */
 export function buildRoster(txs: Tx[], start: string, end: string): RosterEntry[] {
-  const feeTxs = txs
-    .filter(t => t.type === 'income' && t.occurredAt >= start && t.occurredAt <= end)
-    .sort((a, b) => a.occurredAt.localeCompare(b.occurredAt) || a.createdAt.localeCompare(b.createdAt))
+  const feeTxs = feeTxsIn(txs, start, end)
 
   const bySid = new Map<string, RosterEntry>()
   for (const tx of feeTxs) {
@@ -112,4 +126,40 @@ export function buildRoster(txs: Tx[], start: string, end: string): RosterEntry[
   for (const e of roster)
     if (e.dances.length > 1 && e.dances.includes('all')) e.dances = ['all']
   return roster.sort((a, b) => a.sid.localeCompare(b.sid))
+}
+
+/** 一笔课程缴费收入 = 一次缴费;members 就是「这一次一起交钱的人」 */
+export interface PaymentGroup {
+  txId: string
+  occurredAt: string
+  createdAt: string
+  category: string
+  note: string | null
+  amountCents: number
+  /** 缴费档位;历史数据缺 group 或值非法时为 null */
+  group: CourseFeeGroup | null
+  /** 记录时的成员顺序,原样保留 */
+  members: FeeMember[]
+}
+
+/**
+ * 汇总 [start, end] 内的 course-fee 流水 → 每次缴费一组,便于按「流水里缴费的顺序」看人。
+ * 排序与流水页一致:日期倒序,同日按记录时间倒序。
+ */
+export function buildPaymentGroups(txs: Tx[], start: string, end: string): PaymentGroup[] {
+  return feeTxsIn(txs, start, end)
+    .reverse()
+    .map(t => {
+      const { group } = t.metadata as { group?: unknown }
+      return {
+        txId: t.id,
+        occurredAt: t.occurredAt,
+        createdAt: t.createdAt,
+        category: t.category,
+        note: t.note,
+        amountCents: t.amountCents,
+        group: isCourseFeeGroup(group) ? group : null,
+        members: feeMembers(t),
+      }
+    })
 }
