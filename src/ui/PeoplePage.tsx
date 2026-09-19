@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { DANCE_LABEL, FEE_GROUP_LABEL } from '../core/fees'
 import type { Dance } from '../core/fees'
 import { centsToYuan, formatDate } from '../core/format'
@@ -134,11 +135,14 @@ export function PeoplePage() {
 
   return (
     <div className="page-enter space-y-5">
-      {copied && (
-        <div className="fixed bottom-20 left-1/2 z-50 -translate-x-1/2 rounded-full bg-slate-900 px-4 py-2 text-xs text-white shadow-lg">
-          已复制到剪切板
-        </div>
-      )}
+      {/* toast 挂在 .page-enter 外:入场动画残留的 transform 会把 fixed 锚到页面盒子,名单长了就飘到视口外 */}
+      {copied &&
+        createPortal(
+          <div className="fixed bottom-20 left-1/2 z-50 -translate-x-1/2 rounded-full bg-slate-900 px-4 py-2 text-xs text-white shadow-lg">
+            已复制到剪切板
+          </div>,
+          document.body,
+        )}
       <h1 className="text-xl font-semibold tracking-tight text-slate-900">人员</h1>
 
       {/* 学期快捷键 + 自定义区间 */}
