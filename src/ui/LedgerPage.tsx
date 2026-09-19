@@ -12,6 +12,24 @@ export function LedgerPage() {
   const { txs, deleteTx } = useLedger()
   const [month, setMonth] = useState(THIS_MONTH)
   const [selected, setSelected] = useState<Tx | null>(null)
+  /** 详情 sheet 的删除二次确认:进入确认态才允许真删 */
+  const [confirming, setConfirming] = useState(false)
+
+  function openTx(tx: Tx) {
+    setSelected(tx)
+    setConfirming(false)
+  }
+
+  function closeSheet() {
+    setSelected(null)
+    setConfirming(false)
+  }
+
+  async function confirmDelete() {
+    if (!selected) return
+    await deleteTx(selected.id)
+    closeSheet()
+  }
 
   if (!txs) return <p className="text-center text-sm text-slate-400">加载中…</p>
 
@@ -91,7 +109,7 @@ export function LedgerPage() {
               {g.txs.map((t) => (
                 <button
                   key={t.id}
-                  onClick={() => setSelected(t)}
+                  onClick={() => openTx(t)}
                   className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50"
                 >
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-sm ring-1 ring-slate-200/70">
@@ -124,7 +142,7 @@ export function LedgerPage() {
       {selected && (
         <div
           className="animate-fade fixed inset-0 z-40 flex items-end bg-slate-950/50 backdrop-blur-sm md:items-center md:justify-center"
-          onClick={() => setSelected(null)}
+          onClick={closeSheet}
         >
           <div
             className="animate-sheet w-full max-w-md rounded-t-3xl bg-white p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-2xl md:rounded-3xl"
@@ -177,21 +195,42 @@ export function LedgerPage() {
             <p className="mt-1 text-xs text-slate-400">
               记录于 {new Date(selected.createdAt).toLocaleString('zh-CN')}
             </p>
-            <button
-              onClick={async () => {
-                await deleteTx(selected.id)
-                setSelected(null)
-              }}
-              className="mt-6 w-full rounded-xl bg-rose-50 py-3 text-sm font-medium text-rose-600 transition-colors hover:bg-rose-100"
-            >
-              删除这条记录
-            </button>
-            <button
-              onClick={() => setSelected(null)}
-              className="mt-2 w-full rounded-xl py-3 text-sm text-slate-500 transition-colors hover:bg-slate-50"
-            >
-              取消
-            </button>
+            <div className="mt-6 border-t border-slate-100 pt-3">
+              {confirming ? (
+                <div className="rounded-xl bg-rose-50 p-3 ring-1 ring-rose-100">
+                  <p className="text-xs text-rose-700">删除后不可恢复,确定删除这条记录?</p>
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      onClick={() => setConfirming(false)}
+                      className="flex-1 rounded-lg bg-white py-2 text-sm text-slate-600 ring-1 ring-slate-200 transition-colors hover:bg-slate-50"
+                    >
+                      取消
+                    </button>
+                    <button
+                      onClick={confirmDelete}
+                      className="flex-1 rounded-lg bg-rose-600 py-2 text-sm font-medium text-white transition-colors hover:bg-rose-700"
+                    >
+                      确认删除
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <button
+                    onClick={() => setConfirming(true)}
+                    className="rounded-lg px-2 py-1.5 text-xs text-rose-400 transition-colors hover:bg-rose-50 hover:text-rose-600"
+                  >
+                    删除这条记录
+                  </button>
+                  <button
+                    onClick={closeSheet}
+                    className="rounded-lg px-3 py-1.5 text-sm text-slate-500 transition-colors hover:bg-slate-50"
+                  >
+                    关闭
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
