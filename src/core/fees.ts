@@ -1,4 +1,5 @@
 import { centsToYuan } from './format'
+import type { Tx } from './types'
 
 /**
  * 课程缴费的价格档、舞种与明细约定。写死在前端;
@@ -67,6 +68,22 @@ export interface CourseFeeMeta {
 
 export function isDance(v: string): v is Dance {
   return v === 'all' || (DANCES as readonly string[]).includes(v)
+}
+
+/**
+ * 读一条 course-fee 流水的成员;metadata 形制不对整条跳过。
+ * 人员页与流水页共用这一判定:两边对「什么算一条缴费」必须始终一致。
+ */
+export function feeMembers(tx: Tx): CourseFeeMember[] {
+  const meta = tx.metadata as { kind?: unknown; members?: unknown }
+  if (meta?.kind !== 'course-fee' || !Array.isArray(meta.members)) return []
+  const out: CourseFeeMember[] = []
+  for (const m of meta.members) {
+    const { sid, name, dance } = (m ?? {}) as Record<string, unknown>
+    if (typeof sid === 'string' && sid && typeof name === 'string' && name && typeof dance === 'string' && isDance(dance))
+      out.push({ name, sid, dance })
+  }
+  return out
 }
 
 /** 45600 → "456";非整元才带小数。金额预填与 chip 标价共用 */

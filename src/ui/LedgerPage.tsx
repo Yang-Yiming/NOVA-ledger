@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { centsToYuan, formatDate, monthLabel, shiftMonth } from '../core/format'
-import { groupByDate, summarize } from '../core/stats'
+import { groupByDate, summarize, txDigest } from '../core/stats'
 import { TYPE_LABEL } from '../core/categories'
 import type { Tx } from '../core/types'
 import { useLedger } from '../state/ledger'
@@ -139,33 +139,50 @@ export function LedgerPage() {
               <span className="text-xs text-slate-400 tabular-nums">{centsToYuan(g.netCents)}</span>
             </div>
             <div className="divide-y divide-slate-100 overflow-hidden rounded-2xl bg-white ring-1 ring-slate-200/60">
-              {g.txs.map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => openTx(t)}
-                  className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50"
-                >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-sm ring-1 ring-slate-200/70">
-                    {t.category.slice(0, 1)}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium text-slate-800">
-                      {t.category}
-                    </span>
-                    {t.note && (
-                      <span className="block truncate text-xs text-slate-400">{t.note}</span>
-                    )}
-                  </span>
-                  <span
-                    className={`text-sm font-semibold tabular-nums ${
-                      t.type === 'income' ? 'text-emerald-600' : 'text-slate-800'
-                    }`}
+              {g.txs.map((t) => {
+                const digest = txDigest(t)
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => openTx(t)}
+                    className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50"
                   >
-                    {t.type === 'income' ? '+' : '-'}
-                    {centsToYuan(t.amountCents)}
-                  </span>
-                </button>
-              ))}
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-sm ring-1 ring-slate-200/70">
+                      {t.category.slice(0, 1)}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium text-slate-800">
+                        {t.category}
+                      </span>
+                      {digest.subtitle && (
+                        <span className="mt-0.5 block truncate text-xs text-slate-400">
+                          {digest.subtitle}
+                        </span>
+                      )}
+                    </span>
+                    {digest.badge && (
+                      <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">
+                        {digest.badge}
+                      </span>
+                    )}
+                    <span className="shrink-0 text-right">
+                      <span
+                        className={`block text-sm font-semibold tabular-nums ${
+                          t.type === 'income' ? 'text-emerald-600' : 'text-slate-800'
+                        }`}
+                      >
+                        {t.type === 'income' ? '+' : '-'}
+                        {centsToYuan(t.amountCents)}
+                      </span>
+                      {digest.time && (
+                        <span className="block text-xs tabular-nums text-slate-300">
+                          {digest.time}
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                )
+              })}
             </div>
           </section>
         ))

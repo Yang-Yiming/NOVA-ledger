@@ -47,3 +47,10 @@ export function formatDate(iso: string): string {
   const wd = WEEKDAYS[new Date(y, m - 1, d).getDay()]
   return `${m}月${d}日 ${wd}`
 }
+
+/** ISO 时间戳 → 本地时区 "14:32";无法解析时返回空串,调用方自行决定是否展示 */
+export function formatTime(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}

@@ -1,5 +1,6 @@
 import type { CourseFeeGroup, Dance } from './fees'
-import { isCourseFeeGroup, isDance } from './fees'
+import { feeMembers, isCourseFeeGroup } from './fees'
+import type { CourseFeeMember } from './fees'
 import type { Tx } from './types'
 
 /**
@@ -61,29 +62,6 @@ export interface RosterEntry {
   payments: number
 }
 
-function isDanceDance(v: unknown): v is Dance {
-  return typeof v === 'string' && isDance(v)
-}
-
-export interface FeeMember {
-  sid: string
-  name: string
-  dance: Dance
-}
-
-/** 读一条 course-fee tx 的成员;metadata 形制不对整条跳过 */
-function feeMembers(tx: Tx): FeeMember[] {
-  const meta = tx.metadata as { kind?: unknown; members?: unknown }
-  if (meta?.kind !== 'course-fee' || !Array.isArray(meta.members)) return []
-  const out: FeeMember[] = []
-  for (const m of meta.members) {
-    const { sid, name, dance } = (m ?? {}) as Record<string, unknown>
-    if (typeof sid === 'string' && sid && typeof name === 'string' && name && isDanceDance(dance))
-      out.push({ sid, name, dance })
-  }
-  return out
-}
-
 /** [start, end] 内、members 能读出来的课程缴费流水(时间升序,即录入先后) */
 function feeTxsIn(txs: Tx[], start: string, end: string): Tx[] {
   return txs
@@ -139,7 +117,7 @@ export interface PaymentGroup {
   /** 缴费档位;历史数据缺 group 或值非法时为 null */
   group: CourseFeeGroup | null
   /** 记录时的成员顺序,原样保留 */
-  members: FeeMember[]
+  members: CourseFeeMember[]
 }
 
 /**
