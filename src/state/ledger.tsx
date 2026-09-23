@@ -21,6 +21,7 @@ interface StoreCtxValue {
   unlock(password: string): Promise<boolean>
   lock(): void
   addTx(input: TxInput): Promise<void>
+  updateTx(id: string, patch: Partial<TxInput>): Promise<void>
   deleteTx(id: string): Promise<void>
 }
 
@@ -78,6 +79,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       },
       addTx: async (input) => {
         await store.addTx(input)
+        await refresh()
+      },
+      updateTx: async (id, patch) => {
+        await store.updateTx(id, patch)
         await refresh()
       },
       deleteTx: async (id) => {
