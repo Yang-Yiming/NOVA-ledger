@@ -6,6 +6,7 @@ import { EntryPage } from './ui/EntryPage'
 import { PeoplePage } from './ui/PeoplePage'
 import { LedgerPage } from './ui/LedgerPage'
 import { MorePage } from './ui/MorePage'
+import { DoctorPage } from './ui/DoctorPage'
 
 function Gate() {
   const { status, error } = useLedger()
@@ -46,6 +47,7 @@ export default function App() {
             <Route path="ledger" element={<LedgerPage />} />
             <Route path="people" element={<PeoplePage />} />
             <Route path="more" element={<MorePage />} />
+            <Route path="more/doctor" element={<DoctorPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>

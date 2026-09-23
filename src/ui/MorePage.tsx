@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { exportXlsx } from '../core/xlsx'
 import { useLedger } from '../state/ledger'
 import { Supernova } from './supernova'
@@ -11,6 +12,7 @@ const KIND_LABEL: Record<string, string> = {
 
 export function MorePage() {
   const { txs, store, lock } = useLedger()
+  const navigate = useNavigate()
   const [exporting, setExporting] = useState(false)
 
   async function onExport() {
@@ -45,6 +47,21 @@ export function MorePage() {
           className="w-full border-t border-slate-100 px-4 py-3.5 text-left text-sm font-medium text-indigo-600 transition-colors hover:bg-slate-50 disabled:opacity-40"
         >
           {exporting ? '导出中…' : '导出全部流水为 xlsx'}
+        </button>
+      </section>
+
+      <section className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-slate-200/60">
+        <h2 className="border-b border-slate-100 px-4 pb-2 pt-4 text-xs font-medium text-slate-400">
+          维护
+        </h2>
+        <button
+          onClick={() => navigate('/more/doctor')}
+          className="w-full px-4 py-3.5 text-left transition-colors hover:bg-slate-50"
+        >
+          <span className="block text-sm font-medium text-indigo-600">数据体检</span>
+          <span className="mt-0.5 block text-xs text-slate-400">
+            扫描不可见字符等问题,逐条审阅后修正
+          </span>
         </button>
       </section>
 
