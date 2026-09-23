@@ -17,6 +17,7 @@ import {
   type CourseFeeMember,
 } from '../core/fees'
 import { centsToYuan, yuanToCents, todayISO } from '../core/format'
+import { stripInvisible } from '../core/text'
 import { summarize } from '../core/stats'
 import type { TxType } from '../core/types'
 import { useLedger } from '../state/ledger'
@@ -184,8 +185,8 @@ export function EntryPage() {
     let metadata: Record<string, unknown> = {}
     if (isFeeMode && feeGroup) {
       const feeMembers: CourseFeeMember[] = members.map(m => ({
-        name: m.name.trim(),
-        sid: m.sid.trim(),
+        name: stripInvisible(m.name).trim(),
+        sid: stripInvisible(m.sid).trim(),
         dance:
           feeGroup === 'hypernova' || (feeGroup === 'trio' && trioScope === 'all')
             ? 'all'
@@ -201,7 +202,7 @@ export function EntryPage() {
       type,
       amountCents: cents,
       category: finalCategory,
-      note: note.trim() || null,
+      note: stripInvisible(note).trim() || null,
       occurredAt: date,
       metadata,
     })
@@ -428,7 +429,7 @@ export function EntryPage() {
                   <div className="flex items-center gap-1">
                     <input
                       value={csvTemplate}
-                      onChange={e => setCsvTemplate(e.target.value)}
+                      onChange={e => setCsvTemplate(stripInvisible(e.target.value))}
                       placeholder={defaultMemberTemplate(withDance)}
                       className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-2 py-1.5 font-mono text-xs outline-none transition focus:border-indigo-500"
                     />
@@ -470,13 +471,13 @@ export function EntryPage() {
                     <div key={i} className={`grid gap-2 ${withDance ? 'grid-cols-[1fr_1fr_5.5rem]' : 'grid-cols-2'}`}>
                       <input
                         value={m.name}
-                        onChange={e => setMember(i, { name: e.target.value })}
+                        onChange={e => setMember(i, { name: stripInvisible(e.target.value) })}
                         placeholder="姓名"
                         className={INPUT_CLS}
                       />
                       <input
                         value={m.sid}
-                        onChange={e => setMember(i, { sid: e.target.value })}
+                        onChange={e => setMember(i, { sid: stripInvisible(e.target.value) })}
                         placeholder="学号"
                         className={INPUT_CLS}
                       />
@@ -529,7 +530,7 @@ export function EntryPage() {
       </div>
       <input
         value={custom}
-        onChange={(e) => setCustom(e.target.value)}
+        onChange={(e) => setCustom(stripInvisible(e.target.value))}
         placeholder="自定义分类(可选,填写时优先使用)"
         className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
       />
@@ -540,7 +541,7 @@ export function EntryPage() {
       <div className="grid grid-cols-[1fr_auto] gap-3">
         <input
           value={note}
-          onChange={(e) => setNote(e.target.value)}
+          onChange={(e) => setNote(stripInvisible(e.target.value))}
           placeholder="备注(可选)"
           className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
         />

@@ -1,4 +1,5 @@
 import { centsToYuan } from './format'
+import { normalizeLines, stripInvisible } from './text'
 import type { Tx } from './types'
 
 /**
@@ -103,8 +104,9 @@ const TEMPLATE_FIELDS = ['sid', 'name', 'dance'] as const
  * 返回给用户看的错误文案,null 表示可用。
  */
 export function validateMemberTemplate(template: string, withDance: boolean): string | null {
+  const tpl = stripInvisible(template)
   const counts: Partial<Record<(typeof TEMPLATE_FIELDS)[number], number>> = {}
-  for (const m of template.matchAll(/\{(\w+)\}/g)) {
+  for (const m of tpl.matchAll(/\{(\w+)\}/g)) {
     const field = m[1] as (typeof TEMPLATE_FIELDS)[number]
     if (!TEMPLATE_FIELDS.includes(field)) return `未知占位符 {${field}}`
     counts[field] = (counts[field] ?? 0) + 1
@@ -161,11 +163,10 @@ export function memberLines(
   withDance: boolean,
   template = defaultMemberTemplate(withDance),
 ): string {
+  const tpl = stripInvisible(template)
   return members
     .filter(m => m.name.trim() !== '' || m.sid.trim() !== '')
-    .map(m =>
-      template.split('{sid}').join(m.sid).split('{name}').join(m.name).split('{dance}').join(m.dance),
-    )
+    .map(m => tpl.split('{sid}').join(m.sid).split('{name}').join(m.name).split('{dance}').join(m.dance))
     .join('\n')
 }
 
@@ -182,15 +183,16 @@ export function parseMemberLines(
 ): ParsedMemberLines {
   const members: ParsedMemberLines['members'] = []
   const errors: ParsedMemberLines['errors'] = []
-  const re = templateToRegex(template, withDance)
+  const tpl = stripInvisible(template)
+  const re = templateToRegex(tpl, withDance)
   const fields: string[] = []
   if (re) {
-    for (const tok of template.split(/(\{\w+\})/)) {
+    for (const tok of tpl.split(/(\{\w+\})/)) {
       if (/^\{\w+\}$/.test(tok)) fields.push(tok.slice(1, -1))
     }
   }
   const trimPunct = (v: string) => v.replace(/^[,，、;；:．.]+|[,，、;；:．.]+$/g, '')
-  text.split('\n').forEach((raw, i) => {
+  normalizeLines(text).split('\n').forEach((raw, i) => {
     const line = raw.trim()
     if (!line) return
     const m = re?.exec(line)
@@ -198,7 +200,8 @@ export function parseMemberLines(
       errors.push({ line: i + 1, text: line })
       return
     }
-    const value = (field: string) => trimPunct(m[fields.indexOf(field) + 1] ?? '')
+    // 整行已归一化,字段再剥一次标点与不可见字符(双保险)
+    const value = (field: string) => stripInvisible(trimPunct(m[fields.indexOf(field) + 1] ?? ''))
     const sid = value('sid')
     const name = value('name')
     if (!sid || !name) {
