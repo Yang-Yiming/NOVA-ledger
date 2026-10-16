@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { CATEGORIES, TYPE_LABEL } from '../core/categories'
+import { txToDraft, type MemberDraft } from '../core/draft'
 import {
   COURSE_EXPENSE_CENTS,
   COURSE_FEE_CENTS,
@@ -19,7 +20,7 @@ import {
 import { centsToYuan, yuanToCents, todayISO } from '../core/format'
 import { stripInvisible } from '../core/text'
 import { summarize } from '../core/stats'
-import type { TxType } from '../core/types'
+import type { Tx, TxType } from '../core/types'
 import { useLedger } from '../state/ledger'
 
 const TYPE_STYLE: Record<TxType, { active: string; chip: string }> = {
@@ -43,41 +44,43 @@ const FEE_CARDS: { key: CourseFeeGroup; sub: string }[] = [
   { key: 'trio', sub: `¥${feeYuan(COURSE_FEE_CENTS['trio:one'])} 起` },
 ]
 
-/** 表单草稿;dance 仅在三人抱团单舞种档由下拉选择,空串表示未选,提交前被 feeReady 拦截 */
-interface MemberDraft {
-  name: string
-  sid: string
-  dance: string
-}
-
 const emptyDraft = (dance: string): MemberDraft => ({ name: '', sid: '', dance })
 
-export function EntryPage() {
-  const { addTx, error, txs } = useLedger()
+/**
+ * 记账表单本体。`initial` 为空即新建;传一条流水则由 txToDraft 反推全部字段进入编辑态。
+ * 编辑态必须按 id 挂载(见文件末 EntryPage 的 key):lazy initializer 只在首帧读一次 initial。
+ */
+function EntryForm({ initial }: { initial?: Tx }) {
+  const { addTx, updateTx, error, txs } = useLedger()
   const navigate = useNavigate()
-  const [type, setType] = useState<TxType>('expense')
-  const [amount, setAmount] = useState('')
-  const [category, setCategory] = useState<string | null>(null)
-  const [custom, setCustom] = useState('')
-  const [note, setNote] = useState('')
-  const [date, setDate] = useState(todayISO())
+  /** 编辑态的初始草稿;新建时为 null */
+  const draft = initial ? txToDraft(initial) : null
+
+  const [type, setType] = useState<TxType>(() => draft?.type ?? 'expense')
+  const [amount, setAmount] = useState(() => draft?.amount ?? '')
+  const [category, setCategory] = useState<string | null>(() => draft?.category ?? null)
+  const [custom, setCustom] = useState(() => draft?.custom ?? '')
+  const [note, setNote] = useState(() => draft?.note ?? '')
+  const [date, setDate] = useState(() => draft?.date ?? todayISO())
   const [saved, setSaved] = useState(false)
 
   // 课程缴费面板(仅收入态显示):预填金额与分类,所有字段仍可手改
-  const [feeGroup, setFeeGroup] = useState<CourseFeeGroup | null>(null)
-  const [singleDance, setSingleDance] = useState<string | null>(null)
-  const [trioScope, setTrioScope] = useState<'one' | 'all' | null>(null)
-  const [members, setMembers] = useState<MemberDraft[]>([])
+  const [feeGroup, setFeeGroup] = useState<CourseFeeGroup | null>(() => draft?.feeGroup ?? null)
+  const [singleDance, setSingleDance] = useState<string | null>(() => draft?.singleDance ?? null)
+  const [trioScope, setTrioScope] = useState<'one' | 'all' | null>(() => draft?.trioScope ?? null)
+  const [members, setMembers] = useState<MemberDraft[]>(() => draft?.members ?? [])
   const [csvMode, setCsvMode] = useState(false)
   const [csvText, setCsvText] = useState('')
   /** 粘贴格式模板;空串 = 默认格式 {sid},{name}[,{dance}] */
   const [csvTemplate, setCsvTemplate] = useState('')
   /** 收入下的二级模式:课程缴费是主要收入来源,默认展示;其他收入走自由表单 */
-  const [incomeMode, setIncomeMode] = useState<'fee' | 'free'>('fee')
+  const [incomeMode, setIncomeMode] = useState<'fee' | 'free'>(() => draft?.incomeMode ?? 'fee')
   /** 支出下的二级模式:课程费用是主要支出来源,默认展示;其他支出走自由表单 */
-  const [expenseMode, setExpenseMode] = useState<'course' | 'free'>('course')
+  const [expenseMode, setExpenseMode] = useState<'course' | 'free'>(() => draft?.expenseMode ?? 'course')
   /** 课程费用模式下已选舞种,选中即预填金额 */
-  const [expenseDance, setExpenseDance] = useState<(typeof DANCES)[number] | null>(null)
+  const [expenseDance, setExpenseDance] = useState<(typeof DANCES)[number] | null>(
+    () => draft?.expenseDance ?? null,
+  )
   const cents = yuanToCents(amount)
   /** 总余额:打开页面即展示的核心信息,记账成功后随 txs 刷新 */
   const balanceCents = summarize(txs ?? []).balanceCents
@@ -198,14 +201,21 @@ export function EntryPage() {
     } else if (isCourseExpense && expenseDance) {
       metadata = { kind: 'course-expense', dance: expenseDance }
     }
-    await addTx({
+    const input = {
       type,
       amountCents: cents,
       category: finalCategory,
       note: stripInvisible(note).trim() || null,
       occurredAt: date,
       metadata,
-    })
+    }
+    // 编辑态:整条覆盖后回流水页;不做「连续记账」的清空
+    if (initial) {
+      await updateTx(initial.id, input)
+      navigate('/ledger')
+      return
+    }
+    await addTx(input)
     setSaved(true)
     // 保留类型、分类与缴费档,方便连续记账;只清金额与缴费人
     setAmount('')
@@ -216,6 +226,14 @@ export function EntryPage() {
 
   return (
     <form onSubmit={onSubmit} className="page-enter space-y-6">
+      {initial && (
+        <div className="flex items-baseline justify-between px-1">
+          <p className="text-sm font-medium text-slate-500">编辑流水</p>
+          <p className="text-xs text-slate-300">
+            记录于 {new Date(initial.createdAt).toLocaleString('zh-CN')}
+          </p>
+        </div>
+      )}
       <button
         type="button"
         onClick={() => navigate('/ledger')}
@@ -555,17 +573,53 @@ export function EntryPage() {
 
       {error && <p className="text-center text-sm text-red-600">{error}</p>}
 
-      <button
-        type="submit"
-        disabled={!valid}
-        className={`w-full rounded-2xl py-4 text-base font-semibold text-white shadow-lg transition-all active:scale-[0.98] disabled:opacity-30 ${
-          saved
-            ? 'bg-emerald-600 shadow-emerald-600/25'
-            : 'bg-gradient-to-b from-indigo-500 to-indigo-600 shadow-indigo-600/25 hover:from-indigo-500 hover:to-indigo-500'
-        }`}
-      >
-        {saved ? '已记录 ✓' : '保存'}
-      </button>
+      <div className="space-y-2">
+        <button
+          type="submit"
+          disabled={!valid}
+          className={`w-full rounded-2xl py-4 text-base font-semibold text-white shadow-lg transition-all active:scale-[0.98] disabled:opacity-30 ${
+            saved
+              ? 'bg-emerald-600 shadow-emerald-600/25'
+              : 'bg-gradient-to-b from-indigo-500 to-indigo-600 shadow-indigo-600/25 hover:from-indigo-500 hover:to-indigo-500'
+          }`}
+        >
+          {saved ? '已记录 ✓' : initial ? '保存修改' : '保存'}
+        </button>
+        {initial && (
+          <button
+            type="button"
+            onClick={() => navigate('/ledger')}
+            className="w-full rounded-2xl py-3 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-100"
+          >
+            取消
+          </button>
+        )}
+      </div>
     </form>
   )
+}
+
+/**
+ * 路由入口:`/` 新建,`/entry/:id` 编辑。
+ * 编辑时必须等 txs 就绪再挂载 EntryForm —— lazy initializer 首帧要读到那条流水。
+ */
+export function EntryPage() {
+  const { txs } = useLedger()
+  const { id } = useParams()
+  if (!id) return <EntryForm />
+  if (!txs) return <p className="text-center text-sm text-slate-400">加载中…</p>
+  const tx = txs.find((t) => t.id === id)
+  if (!tx)
+    return (
+      <div className="page-enter py-16 text-center">
+        <p className="text-sm text-slate-400">记录不存在或已被删除</p>
+        <Link
+          to="/ledger"
+          className="mt-2 inline-block text-sm text-indigo-600 transition-colors hover:text-indigo-500"
+        >
+          返回流水
+        </Link>
+      </div>
+    )
+  return <EntryForm key={tx.id} initial={tx} />
 }

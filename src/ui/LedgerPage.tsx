@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useNavigate } from 'react-router-dom'
 import { centsToYuan, formatDate, monthLabel, shiftMonth, signedYuan } from '../core/format'
 import { groupByDate, summarize, txDigest } from '../core/stats'
 import { TYPE_LABEL } from '../core/categories'
@@ -11,6 +12,7 @@ const THIS_MONTH = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2
 
 export function LedgerPage() {
   const { txs, deleteTx } = useLedger()
+  const navigate = useNavigate()
   const [month, setMonth] = useState(THIS_MONTH)
   const [selected, setSelected] = useState<Tx | null>(null)
   /** 详情 sheet 的删除二次确认:进入确认态才允许真删 */
@@ -299,12 +301,20 @@ export function LedgerPage() {
                     >
                       删除这条记录
                     </button>
-                    <button
-                      onClick={closeSheet}
-                      className="rounded-lg px-3 py-1.5 text-sm text-slate-500 transition-colors hover:bg-slate-50"
-                    >
-                      关闭
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => navigate(`/entry/${selected.id}`)}
+                        className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-slate-800"
+                      >
+                        编辑
+                      </button>
+                      <button
+                        onClick={closeSheet}
+                        className="rounded-lg px-3 py-1.5 text-sm text-slate-500 transition-colors hover:bg-slate-50"
+                      >
+                        关闭
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

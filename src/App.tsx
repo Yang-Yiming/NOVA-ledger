@@ -44,6 +44,7 @@ export default function App() {
         <Routes>
           <Route element={<Gate />}>
             <Route index element={<EntryPage />} />
+            <Route path="entry/:id" element={<EntryPage />} />
             <Route path="ledger" element={<LedgerPage />} />
             <Route path="people" element={<PeoplePage />} />
             <Route path="more" element={<MorePage />} />
