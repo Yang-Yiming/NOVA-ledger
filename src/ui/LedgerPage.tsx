@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { centsToYuan, formatDate, monthLabel, shiftMonth } from '../core/format'
+import { centsToYuan, formatDate, monthLabel, shiftMonth, signedYuan } from '../core/format'
 import { groupByDate, summarize, txDigest } from '../core/stats'
 import { TYPE_LABEL } from '../core/categories'
 import type { Tx } from '../core/types'
@@ -68,6 +68,8 @@ export function LedgerPage() {
 
   const monthTxs = txs.filter((t) => t.occurredAt.startsWith(month))
   const s = summarize(monthTxs)
+  /** 本月结余 = 收入 − 支出;与卡片「收入 + / 支出 -」同一套符号,正为净进账、负为净花钱 */
+  const monthNetCents = s.incomeCents - s.expenseCents
   const all = summarize(txs)
   const groups = groupByDate(monthTxs)
 
@@ -109,7 +111,7 @@ export function LedgerPage() {
         >
           {centsToYuan(all.balanceCents)}
         </p>
-        <div className="relative mt-5 flex gap-8 text-sm">
+        <div className="relative mt-5 flex gap-6 text-sm">
           <div>
             <p className="text-xs text-white/40">本月收入</p>
             <p className="mt-0.5 font-medium text-emerald-400 tabular-nums">
@@ -120,6 +122,20 @@ export function LedgerPage() {
             <p className="text-xs text-white/40">本月支出</p>
             <p className="mt-0.5 font-medium text-rose-400 tabular-nums">
               -{centsToYuan(s.expenseCents)}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-white/40">本月结余</p>
+            <p
+              className={`mt-0.5 font-medium tabular-nums ${
+                monthNetCents > 0
+                  ? 'text-emerald-400'
+                  : monthNetCents < 0
+                    ? 'text-rose-400'
+                    : 'text-white/60'
+              }`}
+            >
+              {signedYuan(monthNetCents)}
             </p>
           </div>
         </div>
