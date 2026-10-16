@@ -86,3 +86,21 @@ html {
     animation: none;
   }
 }
+
+/*
+ * iOS WebKit 会对「聚焦时字号 < 16px」的表单控件自动放大整个 viewport，
+ * 且键盘收起后不会还原。移动端统一抬到 16px 即可根治。
+ * 这段 CSS 不在任何 @layer 内，而 Tailwind 的 text-sm/text-xs 位于
+ * @layer utilities —— unlayered 优先级更高，因此无需 !important，
+ * 也不会影响桌面端。
+ * 副作用：同样会盖过故意放大的工具类（如金额 input 的 text-5xl），
+ * 这类控件需自行加 `!`（见 EntryPage / LoginPage）。
+ * 断点取 767px，与布局本身的移动端断点 md(768px) 对齐。
+ */
+@media (max-width: 767px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}

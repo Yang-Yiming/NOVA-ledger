@@ -331,7 +331,7 @@ export function EntryPage() {
           inputMode="decimal"
           placeholder="0.00"
           autoFocus
-          className="w-48 border-none bg-transparent text-center text-5xl font-semibold tracking-tight text-slate-900 outline-none placeholder:text-slate-200"
+          className="w-48 border-none bg-transparent text-center text-5xl! font-semibold tracking-tight text-slate-900 outline-none placeholder:text-slate-200"
         />
       </div>
       {amount !== '' && cents === null && (
